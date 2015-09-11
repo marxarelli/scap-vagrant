@@ -87,7 +87,7 @@ if ! [ -d /var/lib/git/mockbase.git ]; then
   chown vagrant:vagrant /srv/deployment
 
   sudo -su vagrant mkdir -p $DEPLOY_DIR
-  rsync --exclude=*.swp --exclude=.git --delete -qa /vagrant/deploy/ $DEPLOY_DIR/
+  rsync --exclude=*.swp --exclude=.git --delete -qa /vagrant/files/deploy/ $DEPLOY_DIR/
 
   pushd $DEPLOY_DIR/mockbase
   sudo -su vagrant git init ./
@@ -112,6 +112,13 @@ if ! [ -d /var/lib/git/mockbase.git ]; then
   sudo -su vagrant git submodule -q add ../mockbase.git
   sudo -su vagrant git commit -m "submodule commit at $(date)"
   popd
+fi
+
+if ! cmp -s {/etc/apache2/sites-available,/vagrant/files/apache}/deployment.conf; then
+  echo 'Setting up Apache vhost for deployment git repos'
+  cp /vagrant/files/apache/deployment.conf /etc/apache2/sites-available/
+  a2ensite deployment
+  service apache2 reload
 fi
 
 # Create an SSH key for the vagrant user (authorized on each container later)
@@ -171,7 +178,7 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
   chown vagrant:vagrant /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase
-  cp /vagrant/deploy/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
+  cp /vagrant/files/deploy/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
   cat > /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/config-vars.yaml <<-end
 	---
 	foo: bar
@@ -201,6 +208,9 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   echo 'Enabling mockbase systemd service in base container'
   lxc attach -q -- systemctl -q enable /etc/mockbase/mockbase.service
 
+  echo 'Authorizing sudo for vagrant on base container'
+  cat /vagrant/files/sudoers | lxc attach -- sh -c 'cat > /etc/sudoers.d/mockbase'
+
   echo 'Stopping base container'
   lxc stop
 fi
@@ -226,14 +236,16 @@ if [ -z "$(lxc-ls $CONTAINER_PREFIX-[0-9])" ]; then
   done
 fi
 
-# Start any stopped slave containers
-lxc-ls --stopped $CONTAINER_PREFIX-[0-9] | while read container; do
+# Start any stopped clone containers
+stopped=($(lxc-ls --stopped $CONTAINER_PREFIX-[0-9]))
+
+for container in "${stopped[@]}"; do
   echo "Starting container $container"
   lxc-start -n $container -d
 done
 
 # Wait until SSH is up on each container then authorize its host key
-lxc-ls $CONTAINER_PREFIX-[0-9] | while read container; do
+for container in "${stopped[@]}"; do
   lxc_wait_for_ssh $container
 
   echo "Authorizing host key for $container"

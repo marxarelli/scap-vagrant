@@ -1,0 +1,2 @@
+vagrant ALL = (vagrant) NOPASSWD: ALL
+vagrant ALL = (root) NOPASSWD: /usr/sbin/service mockbase restart

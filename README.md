@@ -34,4 +34,10 @@ connection.
      accessible at `192.168.122.1` from containers
   8. Writes a list of container host names to `/etc/dsh/group/mockbase`
 
+## How to deploy
+
+    $ vagrant ssh
+    vagrant@vm $ cd /srv/deployment/mockbase/deploy
+    vagrant@vm $ deploy
+
 [scap]: https://www.mediawiki.org/wiki/Deployment_tooling/Notes/What_does_scap_do
