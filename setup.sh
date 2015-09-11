@@ -18,6 +18,7 @@ PACKAGES=(
 )
 
 SCAP_PACKAGES=(
+  git
   python
   python-jinja2
   python-netifaces
