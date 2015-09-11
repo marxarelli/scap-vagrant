@@ -1,0 +1,13 @@
+[Unit]
+Description=MockBase test service
+After=network.target
+
+[Service]
+WorkingDirectory=/srv/deployment/mockbase/deploy
+ExecStart=./mockbase/server
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

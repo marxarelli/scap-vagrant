@@ -12,15 +12,18 @@ deployment tool.
 
     $ vagrant up
 
+And relax. No, really, *relax*. This will take a while depending on your
+connection.
+
 ## What that does
 
   1. Creates a Debian jessie VirtualBox VM
   2. Clones scap into `./scap` and mounts it at `/scap` in the VM
   3. Installs scap dependencies
-  4. Initializes a test `mockbase` project and scap configuration at
-     `/srv/deployment/mockbase`
-  5. Uses LXC to create 10 system containers within the VM to act as deployment
-     targets
+  4. Initializes a test deploy repo with scap configuration at
+     `/srv/deployment/mockbase/deploy`
+  5. Uses LXC to create 10 cloned system containers within the VM to act as
+     deployment targets
   6. Each container:
      1. Is networked via a bridge interface on the VM and accessible over SSH
         at an IP address in the range `192.168.122.0/24`

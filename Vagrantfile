@@ -9,7 +9,7 @@ Vagrant.configure(2) do |config|
   config.vm.box = 'debian/jessie64'
 
   config.vm.provider 'virtualbox'
-  config.vm.provision :shell, path: 'setup.sh', privileged: false
+  config.vm.provision :shell, path: 'setup.sh', args: [ ENV['VAGRANT_LOG'] ].compact
   config.vm.synced_folder SCAP_DIR, '/scap'
 end
 
