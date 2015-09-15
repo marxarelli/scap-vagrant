@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# Prepends the libvirt/dnsmasq server to our list of nameservers when setting
+# up eth0 via DHCP. This script should be installed as a dhclient entry hook.
+#
+new_domain_name_servers="192.168.122.1 $new_domain_name_servers"

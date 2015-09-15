@@ -102,7 +102,7 @@ fi
 # Set up Apache to host it
 if ! cmp -s {/etc/apache2/sites-available,/vagrant/files/apache}/deployment.conf; then
   echo 'Setting up Apache vhost for deployment git repos'
-  cp /vagrant/files/apache/deployment.conf /etc/apache2/sites-available/
+  install -o root -m 0644 /vagrant/files/apache/deployment.conf /etc/apache2/sites-available/
   a2ensite deployment
   service apache2 reload
 fi
@@ -158,9 +158,6 @@ cat > /etc/lxc/default.conf <<-end
 	lxc.network.hwaddr = 00:FF:AA:00:00:xx
 	lxc.network.ipv4 = 0.0.0.0/24
 	end
-
-# Configure host DNS to resolve from dnsmasq first
-sed -i '1i nameserver 192.168.122.1' /etc/resolv.conf
 
 # Move /var/lib/lxc to a btrfs mount so we can do snapshots
 if [ -z "$(awk '/^[^#]/ && $2 == "/var/lib/lxc" { print $2 }' /etc/fstab)" ]; then
@@ -275,3 +272,10 @@ for container in "${stopped[@]}"; do
 
   ssh-keyscan -H -t ecdsa $container >> /etc/ssh/ssh_known_hosts 2> /dev/null
 done
+
+# Configure host DNS to resolve from dnsmasq first
+if ! cmp -s {/vagrant/files/dhcp,/etc/dhcp/dhclient-enter-hooks.d}/prefer-local-nameserver; then
+  echo 'Configuring host DNS to resolve local container names'
+  install -o root -m 0755 /vagrant/files/dhcp/prefer-local-nameserver /etc/dhcp/dhclient-enter-hooks.d/
+  service networking reload
+fi
