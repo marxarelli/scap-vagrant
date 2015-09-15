@@ -84,6 +84,13 @@ if ! virsh net-list | grep -q default; then
   virsh net-autostart default
 fi
 
+# Configure host DNS to resolve from dnsmasq first
+if ! cmp -s {/vagrant/files/dhcp,/etc/dhcp/dhclient-enter-hooks.d}/prefer-local-nameserver; then
+  echo 'Configuring host DNS to resolve local container names'
+  install -o root -m 0755 /vagrant/files/dhcp/prefer-local-nameserver /etc/dhcp/dhclient-enter-hooks.d/
+  service networking reload
+fi
+
 # Clone scap into /scap if it's not already cloned
 if ! [ -d /scap/.git ]; then
   echo "Cloning $SCAP_REPO to /scap"
@@ -272,10 +279,3 @@ for container in "${stopped[@]}"; do
 
   ssh-keyscan -H -t ecdsa $container >> /etc/ssh/ssh_known_hosts 2> /dev/null
 done
-
-# Configure host DNS to resolve from dnsmasq first
-if ! cmp -s {/vagrant/files/dhcp,/etc/dhcp/dhclient-enter-hooks.d}/prefer-local-nameserver; then
-  echo 'Configuring host DNS to resolve local container names'
-  install -o root -m 0755 /vagrant/files/dhcp/prefer-local-nameserver /etc/dhcp/dhclient-enter-hooks.d/
-  service networking reload
-fi
