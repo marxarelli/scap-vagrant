@@ -4,6 +4,8 @@
 # tooling. See the README for details.
 #
 
+set -e
+
 [ "$1" == 'debug' ] && set -o xtrace
 
 PACKAGES=(
@@ -15,6 +17,7 @@ PACKAGES=(
   libvirt-bin
   lxc
   uidmap
+  vim
 )
 
 SCAP_PACKAGES=(
@@ -49,7 +52,7 @@ lxc() {
 lxc_wait_for_ip() {
   echo "Waiting for $1 to get an IP"
   timeout 30s bash <<-end
-	while [ -z "$(lxc-info -i -n "$1")" ]; do
+	while [ -z "\$(lxc-info -i -n '$1')" ]; do
 	  sleep 0.2
 	done
 	end
@@ -66,8 +69,20 @@ lxc_wait_for_ssh() {
 	end
 }
 
+# Set up apt cache and install packages
+if ! [ -f /etc/apt/apt.conf.d/20shared-cache ]; then
+  mkdir -p /vagrant/cache/apt
+  echo 'Dir::Cache::archives "/vagrant/cache/apt";' > /etc/apt/apt.conf.d/20shared-cache
+fi
+
 apt-get -y update
 apt-get -y install "${PACKAGES[@]}" "${SCAP_PACKAGES[@]}"
+
+# Create bridge interface
+if ! virsh net-list | grep -q default; then
+  virsh net-start default
+  virsh net-autostart default
+fi
 
 # Clone scap into /scap if it's not already cloned
 if ! [ -d /scap/.git ]; then
@@ -78,43 +93,13 @@ fi
 # Add scap project directory to our PATH
 echo 'PATH=/vagrant/scap/bin:"$PATH"' > /etc/profile.d/scap.sh
 
-# Prepare mockbase and deploy/mockbase git repos. XXX what a mess
-if ! [ -d /var/lib/git/mockbase.git ]; then
-  echo 'Preparing mockbase and deploy/mockbase git repos'
-  sudo -su vagrant git config --global user.name vagrant
-  sudo -su vagrant git config --global user.email vagrant@localhost
-
+# Create deployment environment
+if ! [ -d /srv/deployment ]; then
   mkdir -p /srv/deployment
   chown vagrant:vagrant /srv/deployment
-
-  sudo -su vagrant mkdir -p $DEPLOY_DIR
-  rsync --exclude=*.swp --exclude=.git --delete -qa /vagrant/files/deploy/ $DEPLOY_DIR/
-
-  pushd $DEPLOY_DIR/mockbase
-  sudo -su vagrant git init ./
-  sudo -su vagrant git add --all :/ && git commit -m "commit at $(date)"
-  mockbase_commit=$(git rev-parse HEAD)
-  popd
-
-  git clone -q --bare $DEPLOY_DIR/mockbase /var/lib/git/mockbase.git
-
-  pushd $DEPLOY_DIR
-  rm -rf mockbase
-  sudo -su vagrant git init ./
-  sudo -su vagrant git add --all :/
-  sudo -su vagrant git commit -m "commit at $(date)"
-  popd
-
-  git clone -q --bare $DEPLOY_DIR /var/lib/git/mockbase-deploy.git
-
-  rm -rf $DEPLOY_DIR
-  sudo -su vagrant git clone -q /var/lib/git/mockbase-deploy.git $DEPLOY_DIR
-  pushd $DEPLOY_DIR
-  sudo -su vagrant git submodule -q add ../mockbase.git
-  sudo -su vagrant git commit -m "submodule commit at $(date)"
-  popd
 fi
 
+# Set up Apache to host it
 if ! cmp -s {/etc/apache2/sites-available,/vagrant/files/apache}/deployment.conf; then
   echo 'Setting up Apache vhost for deployment git repos'
   cp /vagrant/files/apache/deployment.conf /etc/apache2/sites-available/
@@ -122,15 +107,47 @@ if ! cmp -s {/etc/apache2/sites-available,/vagrant/files/apache}/deployment.conf
   service apache2 reload
 fi
 
+# Prepare central mockbase repo
+if ! [ -d /var/lib/git/mockbase ]; then
+  echo 'Preparing central mockbase repo'
+  sudo -su vagrant git config --global user.name vagrant
+  sudo -su vagrant git config --global user.email vagrant@localhost
+
+  dir="$(mktemp -d)"
+  rsync --exclude=*.swp --exclude=.git --delete -qa /vagrant/files/mockbase/ "$dir/"
+
+  pushd "$dir"
+  sudo -su vagrant git init ./
+  sudo -su vagrant git add --all :/
+  sudo -su vagrant git commit -m 'initial commit'
+  popd
+
+  git clone -q --bare "$dir" /var/lib/git/mockbase
+  pushd /var/lib/git/mockbase
+  git update-server-info
+  popd
+  rm -rf "$dir"
+fi
+
+# Prepare deploy repo
+if ! [ -d "$DEPLOY_DIR" ]; then
+  echo 'Cloning git repos into the deployment directory'
+  sudo -su vagrant mkdir -p "$DEPLOY_DIR"
+  sudo -su vagrant rsync --exclude=*.swp --exclude=.git --delete -qr /vagrant/files/deploy/ "$DEPLOY_DIR/"
+fi
+
+if ! [ -d "$DEPLOY_DIR/.git" ]; then
+  pushd "$DEPLOY_DIR"
+  sudo -su vagrant git init ./
+  sudo -su vagrant git add --all :/
+  sudo -su vagrant git submodule -q add http://192.168.122.1/git/mockbase
+  sudo -su vagrant git commit -m 'initial commit'
+  popd
+fi
+
 # Create an SSH key for the vagrant user (authorized on each container later)
 if ! [ -f /home/vagrant/.ssh/id_rsa ]; then
   sudo -u vagrant ssh-keygen -t rsa -f /home/vagrant/.ssh/id_rsa -N ''
-fi
-
-# Create bridge interface
-if ! virsh net-list | grep -q default; then
-  virsh net-start default
-  virsh net-autostart default
 fi
 
 # Allow networked containers
@@ -179,7 +196,7 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
   chown vagrant:vagrant /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase
-  cp /vagrant/files/deploy/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
+  cp /vagrant/files/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
   cat > /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/config-vars.yaml <<-end
 	---
 	foo: bar
