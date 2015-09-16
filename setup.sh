@@ -39,6 +39,9 @@ PASSWORD=vagrant
 
 DEPLOY_DIR=/srv/deployment/mockbase/deploy
 
+VAGRANT_UID=$(id -u vagrant)
+VAGRANT_GID=$(id -g vagrant)
+
 # Function for doing stuff to our base container
 lxc() {
   local cmd=$1
@@ -219,8 +222,8 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   lxc attach -- apt-get -y --force-yes install openssh-server "${SCAP_PACKAGES[@]}"
 
   echo 'Setting up base container users'
-  lxc attach -- groupadd -g 1000 vagrant
-  lxc attach -- useradd -u 1000 -Ng 1000 -d /home/vagrant -m -s /bin/bash vagrant
+  lxc attach -- groupadd -g $uid vagrant
+  lxc attach -- useradd -u $VAGRANT_UID -Ng $VAGRANT_GID -d /home/vagrant -m -s /bin/bash vagrant
   for user in root vagrant; do echo "$user:$PASSWORD"; done | lxc attach -- chpasswd
   lxc attach -- sudo -su vagrant mkdir -m 0700 /home/vagrant/.ssh
   cat /home/vagrant/.ssh/id_rsa.pub \
