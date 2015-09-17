@@ -222,7 +222,7 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   lxc attach -- apt-get -y --force-yes install openssh-server "${SCAP_PACKAGES[@]}"
 
   echo 'Setting up base container users'
-  lxc attach -- groupadd -g $uid vagrant
+  lxc attach -- groupadd -g $VAGRANT_GID vagrant
   lxc attach -- useradd -u $VAGRANT_UID -Ng $VAGRANT_GID -d /home/vagrant -m -s /bin/bash vagrant
   for user in root vagrant; do echo "$user:$PASSWORD"; done | lxc attach -- chpasswd
   lxc attach -- sudo -su vagrant mkdir -m 0700 /home/vagrant/.ssh
