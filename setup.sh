@@ -103,6 +103,9 @@ fi
 # Add scap project directory to our PATH
 echo 'PATH=/vagrant/scap/bin:"$PATH"' > /etc/profile.d/scap.sh
 
+# Add helper functions to profile
+install -o root -m 0644 /vagrant/files/helper.sh /etc/profile.d/
+
 # Create deployment environment
 if ! [ -d /srv/deployment ]; then
   mkdir -p /srv/deployment
