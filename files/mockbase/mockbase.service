@@ -3,7 +3,7 @@ Description=MockBase test service
 After=network.target
 
 [Service]
-ExecStart=/srv/deployment/mockbase/deploy/current/mockbase/server
+ExecStart=/srv/deployment/mockbase/deploy/mockbase/server
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
