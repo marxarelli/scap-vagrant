@@ -1,0 +1,3 @@
+/tmp/mockbase-config.yaml:
+    template: config.yaml.j2
+    remote_vars: /etc/mockbase/config-vars.yaml
