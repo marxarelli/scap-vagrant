@@ -203,8 +203,8 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/srv/deployment/scap/scap
 
   echo 'Setting up mockbase in base container'
-  mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
-  chown vagrant:vagrant /var/lib/lxc/$BASE_CONTAINER/rootfs/$DEPLOY_DIR
+  mkdir -p "/var/lib/lxc/$BASE_CONTAINER/rootfs/${DEPLOY_DIR}-cache"
+  chown -R vagrant:vagrant "/var/lib/lxc/$BASE_CONTAINER/rootfs/$(dirname $DEPLOY_DIR)"
   mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase
   cp /vagrant/files/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
   cat > /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/config-vars.yaml <<-end
