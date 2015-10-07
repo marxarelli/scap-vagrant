@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e
+
+TIMEOUT=5
+URL=
+
+while getopts "t:" option; do
+  case "$option" in
+    t) TIMEOUT="$OPTARG" ;;
+  esac
+done
+
+shift $((OPTIND-1))
+
+URL=$1
+
+tmp="$(tempfile)"
+
+timeout $TIMEOUT /bin/bash <<-end
+	while ! curl -s "$URL" -o "$tmp"; do
+	  sleep 1
+	done
+	end
+
+grep -q '{ "mockbase": "ftw" }' "$tmp"

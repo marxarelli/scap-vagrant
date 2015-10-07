@@ -4,5 +4,6 @@ checks:
     command: nc -z localhost 1134
 
   mockbase_responds:
+    type: nrpe
     stage: promote
-    command: curl http://localhost:1134
+    command: check_endpoints_mockbase

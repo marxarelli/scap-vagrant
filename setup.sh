@@ -13,17 +13,18 @@ PACKAGES=(
   apache2-utils
   bridge-utils
   btrfs-tools
-  curl
   git
   libvirt-bin
   lxc
-  netcat
   uidmap
   vim
 )
 
-SCAP_PACKAGES=(
+TARGET_PACKAGES=(
+  curl
   git
+  nagios-nrpe-server
+  netcat
   python
   python-jinja2
   python-netifaces
@@ -81,7 +82,7 @@ if ! [ -f /etc/apt/apt.conf.d/20shared-cache ]; then
 fi
 
 apt-get -y update
-apt-get -y install "${PACKAGES[@]}" "${SCAP_PACKAGES[@]}"
+apt-get -y install "${PACKAGES[@]}" "${TARGET_PACKAGES[@]}"
 
 # Create bridge interface
 if ! virsh net-list | grep -q default; then
@@ -198,18 +199,20 @@ fi
 if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   lxc create -t download -B btrfs -- -d debian -r jessie -a amd64
 
+  BASE_ROOT=/var/lib/lxc/$BASE_CONTAINER/rootfs
+
   echo 'Updating LXC download cache'
   mkdir -p /vagrant/cache/lxc/download
   rsync -qrlt /var/cache/lxc/download/ /vagrant/cache/lxc/download/
 
-  mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/srv/deployment/scap/scap
+  mkdir -p $BASE_ROOT/srv/deployment/scap/scap
 
   echo 'Setting up mockbase in base container'
-  mkdir -p "/var/lib/lxc/$BASE_CONTAINER/rootfs/${DEPLOY_DIR}-cache"
-  chown -R vagrant:vagrant "/var/lib/lxc/$BASE_CONTAINER/rootfs/$(dirname $DEPLOY_DIR)"
-  mkdir -p /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase
-  cp /vagrant/files/mockbase/mockbase.service /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/
-  cat > /var/lib/lxc/$BASE_CONTAINER/rootfs/etc/mockbase/config-vars.yaml <<-end
+  mkdir -p "$BASE_ROOT/${DEPLOY_DIR}-cache"
+  chown -R vagrant:vagrant "$BASE_ROOT/$(dirname $DEPLOY_DIR)"
+  mkdir -p $BASE_ROOT/etc/mockbase
+  cp /vagrant/files/mockbase/mockbase.service $BASE_ROOT/etc/mockbase/
+  cat > $BASE_ROOT/etc/mockbase/config-vars.yaml <<-end
 	---
 	foo: bar
 	end
@@ -224,7 +227,7 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
   echo 'Installing scap dependencies into base container'
   lxc attach -- apt-get -y update
   lxc attach -- apt-get -y --force-yes install apt-utils
-  lxc attach -- apt-get -y --force-yes install openssh-server "${SCAP_PACKAGES[@]}"
+  lxc attach -- apt-get -y --force-yes install openssh-server "${TARGET_PACKAGES[@]}"
 
   echo 'Setting up base container users'
   lxc attach -- groupadd -g $VAGRANT_GID vagrant
@@ -237,6 +240,10 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
 
   echo 'Enabling mockbase systemd service in base container'
   lxc attach -q -- systemctl -q enable /etc/mockbase/mockbase.service
+
+  echo 'Installing /usr/local/bin scripts and NRPE checks'
+  install -o root -m 0755 -t $BASE_ROOT/usr/local/bin /vagrant/files/bin/*
+  install -o root -m 0644 -t $BASE_ROOT/etc/nagios/nrpe.d /vagrant/files/nrpe.d/*.cfg
 
   echo 'Authorizing sudo for vagrant on base container'
   cat /vagrant/files/sudoers | lxc attach -- sh -c 'cat > /etc/sudoers.d/mockbase'
