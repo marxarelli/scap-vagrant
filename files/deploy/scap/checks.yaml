@@ -1,0 +1,8 @@
+checks:
+  mockbase_listening:
+    stage: promote
+    command: nc -z localhost 1134
+
+  mockbase_responds:
+    stage: promote
+    command: curl http://localhost:1134

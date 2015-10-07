@@ -13,9 +13,11 @@ PACKAGES=(
   apache2-utils
   bridge-utils
   btrfs-tools
+  curl
   git
   libvirt-bin
   lxc
+  netcat
   uidmap
   vim
 )
