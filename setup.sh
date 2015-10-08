@@ -55,6 +55,11 @@ lxc() {
   return $?
 }
 
+lxc_ip() {
+  lxc_wait_for_ip $1
+  echo "$(lxc-info -i -n "$1" | awk '{ print $2 }')"
+}
+
 lxc_wait_for_ip() {
   echo "Waiting for $1 to get an IP"
   timeout 30s bash <<-end
@@ -279,6 +284,16 @@ stopped=($(lxc-ls --stopped $CONTAINER_PREFIX-[0-9]))
 for container in "${stopped[@]}"; do
   echo "Starting container $container"
   lxc-start -n $container -d
+done
+
+# Enable local resolution of containers via /etc/hosts
+for container in "${stopped[@]}"; do
+  ip=$(lxc_ip $container)
+  if ! grep -q "^.*  ${container}" /etc/hosts; then
+    echo "${ip}  ${container}" >> /etc/hosts
+  else
+    sed -i "s/^[0-9.]*  ${container}/${ip}  ${container}/" /etc/hosts
+  fi
 done
 
 # Wait until SSH is up on each container then authorize its host key
