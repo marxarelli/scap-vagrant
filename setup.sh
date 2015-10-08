@@ -226,8 +226,8 @@ if [ -z "$(lxc-ls -1 $BASE_CONTAINER)" ]; then
 
   echo 'Installing scap dependencies into base container'
   lxc attach -- apt-get -y update
-  lxc attach -- apt-get -y --force-yes install apt-utils
-  lxc attach -- apt-get -y --force-yes install openssh-server "${TARGET_PACKAGES[@]}"
+  lxc attach -- apt-get -y --force-yes install apt-utils openssh-server
+  lxc attach -- apt-get -y --force-yes install "${TARGET_PACKAGES[@]}"
 
   echo 'Setting up base container users'
   lxc attach -- groupadd -g $VAGRANT_GID vagrant
